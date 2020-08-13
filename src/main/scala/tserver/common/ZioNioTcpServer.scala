@@ -1,7 +1,6 @@
 package tserver.common
 
 import cats.implicits.toTraverseOps
-import tserver.Protocol
 import zio.{Chunk, Managed, RIO, URIO, console}
 import zio.console.Console
 import zio.nio.channels.AsynchronousServerSocketChannel
@@ -9,9 +8,9 @@ import zio.nio.core.SocketAddress
 import zio.stream.ZStream
 import zio.interop.catz.{console => _, _}
 
-class ZioNioTcpServer[R <: Console,T](host: String ,port: Int) {
+class ZioNioTcpServer(host: String ,port: Int) {
 
-  def run(processor: T => RIO[R, List[T]],
+  def run[R <: Console,T](processor: T => RIO[R, List[T]],
           encoder: T => RIO[R,Array[Byte]],
           decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
     server(host,port)
@@ -26,7 +25,7 @@ class ZioNioTcpServer[R <: Console,T](host: String ,port: Int) {
       _             <- server.bind(socketAddress).toManaged_
     } yield server
 
-  private def handleConnections( server: AsynchronousServerSocketChannel,
+  private def handleConnections[R<: Console,T]( server: AsynchronousServerSocketChannel,
                                  processor: T => RIO[R, List[T]],
                                  protocolDecoder: Array[Byte] => RIO[R,T],
                                  protocolEncoder: T => RIO[R,Array[Byte]]): RIO[R, Unit] =

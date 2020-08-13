@@ -1,9 +1,10 @@
-package tserver
+package tserver.utils
 
 import scala.annotation.tailrec
 
 object FactorizationUtil {
 
+  //copy-paste form stackoverflow
   def factorize(x: Int): List[Int] = {
     @tailrec
     def foo(x: Int, a: Int = 2, list: List[Int] = Nil): List[Int] = a*a > x match {

@@ -15,7 +15,7 @@ object StreamsBasedServer extends App {
   type Env = Console
 
   def run(args: List[String]): URIO[Env, ExitCode] =
-    new ZioNioTcpServer[Env,Protocol]("localhost",8080)
+    new ZioNioTcpServer("localhost",8080)
       .run(processor,encoder,decoder)
       .exitCode
 
