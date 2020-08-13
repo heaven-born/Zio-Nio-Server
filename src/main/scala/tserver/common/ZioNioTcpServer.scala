@@ -11,9 +11,9 @@ import zio.interop.catz.{console => _, _}
 
 class ZioNioTcpServer[R <: Console,T](host: String ,port: Int) {
 
-  def run(processor: Protocol => RIO[R, List[Protocol]],
-          encoder: Protocol => RIO[R,Array[Byte]],
-          decoder: Array[Byte] => RIO[R,Protocol]): RIO[R, Unit] =
+  def run(processor: T => RIO[R, List[T]],
+          encoder: T => RIO[R,Array[Byte]],
+          decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
     server(host,port)
       .use(handleConnections(_, processor,decoder,encoder))
 
@@ -27,9 +27,9 @@ class ZioNioTcpServer[R <: Console,T](host: String ,port: Int) {
     } yield server
 
   private def handleConnections( server: AsynchronousServerSocketChannel,
-                                 processor: Protocol => RIO[R, List[Protocol]],
-                                 protocolDecoder: Array[Byte] => RIO[R,Protocol],
-                                 protocolEncoder: Protocol => RIO[R,Array[Byte]]): RIO[R, Unit] =
+                                 processor: T => RIO[R, List[T]],
+                                 protocolDecoder: Array[Byte] => RIO[R,T],
+                                 protocolEncoder: T => RIO[R,Array[Byte]]): RIO[R, Unit] =
     ZStream
       .repeat(server.accept)
       .flatMap(conn => ZStream.managed(conn.ensuring(console.putStrLn("Connection closed"))))
