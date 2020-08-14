@@ -2,7 +2,8 @@ package tserver
 
 
 import java.nio.ByteBuffer
-import scodec.bits.ByteVector
+
+import scodec.bits.{Bases, ByteVector}
 import tserver.common.ZioNioTcpServer
 import zio.console.Console
 import zio.{RIO, _}
@@ -20,7 +21,12 @@ object StreamsBasedServer extends App {
       .exitCode
 
   def processor(proto: Protocol):RIO[Env, List[Protocol]] = {
-      RIO(List[Protocol](ResPQ(1,3,4,5,ByteVector.fromInt(5))))
+    val nonce = ByteVector.fromValidHex("0x3E0549828CCA27E966B301A48FECE2FC",Bases.Alphabets.HexUppercase)
+    val server_nonce = ByteVector.fromValidHex("0xA5CF4D33F4A11EA877BA4AA573907330",Bases.Alphabets.HexUppercase)
+    val pq = BigInt("1724114033281923457")
+    val fongerprint = BigInt("2408273976350192835")
+    val resp = ResPQ(0,5901257890957871105L,64,res_pq_constructor,nonce,server_nonce,pq,vector_long_con,1,fongerprint)
+    RIO(List[Protocol](resp))
   }
 
   def encoder(arr: Protocol):RIO[Env, Array[Byte]] = arr match {
@@ -35,11 +41,14 @@ object StreamsBasedServer extends App {
   def decoder(arr: Array[Byte]):RIO[Env, Protocol]  = {
     println("Request Hex: "+ByteVector.apply(arr))
     val buffer = arr.slice(20,24)
-    val constructor = ByteBuffer.wrap(buffer.reverse).getInt
+    println("TL constructor (HEX): "+ ByteVector.apply(buffer))
+    val constructor = ByteBuffer.wrap(buffer.padTo(8,0.toByte).reverse).getLong
     println("TL constructor (decimal): "+ constructor)
     constructor match {
-      case 1615239032 => //reqPQ
-        ZIO(reqpqcodec.decode(ByteVector.apply(arr).toBitVector).require.value)
+      case `req_pq_constructor` =>
+        ZIO(ReqPQCodec.decode(ByteVector.apply(arr).toBitVector).require.value)
+      case `req_dh_params_constructor` =>
+        ZIO(ReqDHParamsCodec.decode(ByteVector.apply(arr).toBitVector).require.value)
       case e => ZIO.fail(new Exception("error decoding Array :"+arr.toList))
     }
 

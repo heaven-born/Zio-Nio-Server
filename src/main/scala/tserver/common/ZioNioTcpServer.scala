@@ -8,11 +8,22 @@ import zio.nio.core.SocketAddress
 import zio.stream.ZStream
 import zio.interop.catz.{console => _, _}
 
+/**
+ * Purely functional lightweight general purpose TCP server based on ZIO and NIO2.
+ *
+ * Method "run" accepts:
+ *  decoder - converts byte array from requests to type T (usually sealed trait)
+ *  encoder - converts type T back to byte array
+ *  processor - contains business logic accepting type T (request) and returning list of T (responses)
+ *
+ * @param host
+ * @param port
+ */
 class ZioNioTcpServer(host: String ,port: Int) {
 
-  def run[R <: Console,T](processor: T => RIO[R, List[T]],
-          encoder: T => RIO[R,Array[Byte]],
-          decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
+  def run[R <: Console,T]( processor: T => RIO[R, List[T]],
+                           encoder: T => RIO[R,Array[Byte]],
+                           decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
     server(host,port)
       .use(handleConnections(_, processor,decoder,encoder))
 
@@ -25,6 +36,8 @@ class ZioNioTcpServer(host: String ,port: Int) {
       _             <- server.bind(socketAddress).toManaged_
     } yield server
 
+
+  //TODO: enhance to support multiple threads
   private def handleConnections[R<: Console,T]( server: AsynchronousServerSocketChannel,
                                  processor: T => RIO[R, List[T]],
                                  protocolDecoder: Array[Byte] => RIO[R,T],
@@ -32,7 +45,7 @@ class ZioNioTcpServer(host: String ,port: Int) {
     ZStream
       .repeat(server.accept)
       .flatMap(conn => ZStream.managed(conn.ensuring(console.putStrLn("Connection closed"))))
-      .mapM { channel =>
+      .mapM{ channel =>
         val r = for {
           _    <- console.putStrLn("Received connection")
           requestData <- channel.read(256)
