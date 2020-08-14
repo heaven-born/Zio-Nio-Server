@@ -36,7 +36,7 @@ package object tserver {
                    fingerprints: BigInt) extends Protocol
 
   val ReqDHParamsCodec = (int64L :: int64L :: int32L :: uint32L :: nonceCodec ::
-    nonceCodec :: p_q_Coded :: p_q_Coded :: fingerprintCodec).as[ReqDHParams]
+    nonceCodec :: p_q_Coded :: p_q_Coded :: fingerprintCodec :: bytes(260)).as[ReqDHParams]
 
   case class ReqDHParams(auth_key_id: Long,
                          message_id: Long,
@@ -46,7 +46,8 @@ package object tserver {
                          server_nonce:ByteVector,
                          p: Long,
                          q: Long,
-                         public_key_fingerprint: BigInt) extends Protocol
+                         public_key_fingerprint: BigInt,
+                         encrypted_data: ByteVector) extends Protocol
 
   val PqInnerDataCodec = (uint32L :: pqCoded :: p_q_Coded :: p_q_Coded :: nonceCodec ::
     nonceCodec :: bytes(32) ).as[PqInnerData]
