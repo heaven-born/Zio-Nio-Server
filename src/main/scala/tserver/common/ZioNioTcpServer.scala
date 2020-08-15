@@ -1,6 +1,7 @@
 package tserver.common
 
 import cats.implicits.toTraverseOps
+import scodec.bits.ByteVector
 import zio.{Chunk, Managed, RIO, URIO, console}
 import zio.console.Console
 import zio.nio.channels.AsynchronousServerSocketChannel
@@ -49,11 +50,13 @@ class ZioNioTcpServer(host: String ,port: Int) {
         val r = for {
           _    <- console.putStrLn("Received connection")
           requestData <- channel.read(256)
+          _    <- console.putStrLn("Data received: "+ ByteVector(requestData))
           requestObject <- protocolDecoder(requestData.toArray)
-          _    <- console.putStrLn("Data received: "+requestObject)
+          _    <- console.putStrLn("Object received: "+requestObject)
           respObjects    <- processor(requestObject)
-          _    <- console.putStrLn("Response to be sent: "+respObjects)
+          _    <- console.putStrLn("Objects to be sent: "+respObjects)
           respData    <- respObjects.map(protocolEncoder).sequence
+          _    <- console.putStrLn("Data to be sent: "+respData.map(ByteVector(_)))
           writtenBytes <- respData.map(arr => channel.write(Chunk.fromArray(arr))).sequence
           _    <- console.putStrLn("Bytes sent: "+writtenBytes)
         } yield ()

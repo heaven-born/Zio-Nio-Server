@@ -12,21 +12,21 @@ object RsaUtil {
   private val decoder = Base64.getDecoder
 
   def encrypt(input: Array[Byte], publicKey: String):Array[Byte] = {
-    val factory = KeyFactory.getInstance("RSA");
-    val encodedKeySpec = new X509EncodedKeySpec(decoder.decode(publicKey));
-    val pub = factory.generatePublic(encodedKeySpec);
-    val cipherEncrypt = Cipher.getInstance(algorithm);
-    cipherEncrypt.init(Cipher.ENCRYPT_MODE, pub);
-    cipherEncrypt.doFinal(input);
+    val factory = KeyFactory.getInstance("RSA")
+    val encodedKeySpec = new X509EncodedKeySpec(decoder.decode(publicKey))
+    val pub = factory.generatePublic(encodedKeySpec)
+    val cipherEncrypt = Cipher.getInstance(algorithm)
+    cipherEncrypt.init(Cipher.ENCRYPT_MODE, pub)
+    cipherEncrypt.doFinal(input)
   }
 
   def decrypt(input: Array[Byte], privateKey: String, size: Int):Array[Byte] = {
-    val factory = KeyFactory.getInstance("RSA");
-    val encodedKeySpec = new PKCS8EncodedKeySpec(decoder.decode(privateKey));
-    val pr = factory.generatePrivate(encodedKeySpec);
-    val cipherEncrypt = Cipher.getInstance(algorithm);
-    cipherEncrypt.init(Cipher.DECRYPT_MODE, pr);
-    cipherEncrypt.doFinal(input);
+    val factory = KeyFactory.getInstance("RSA")
+    val encodedKeySpec = new PKCS8EncodedKeySpec(decoder.decode(privateKey))
+    val pr = factory.generatePrivate(encodedKeySpec)
+    val cipherEncrypt = Cipher.getInstance(algorithm)
+    cipherEncrypt.init(Cipher.DECRYPT_MODE, pr)
+    cipherEncrypt.doFinal(input).takeRight(size)
   }
 
 }
