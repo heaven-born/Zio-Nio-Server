@@ -2,7 +2,8 @@ package tserver.common
 
 import cats.implicits.toTraverseOps
 import scodec.bits.ByteVector
-import zio.{Chunk, Managed, RIO, URIO, console}
+import tserver.common.ZioNioTcpServer.Result
+import zio.{Chunk, Managed, RIO, URIO, ZIO, console}
 import zio.console.Console
 import zio.nio.channels.AsynchronousServerSocketChannel
 import zio.nio.core.SocketAddress
@@ -21,7 +22,7 @@ import zio.interop.catz.{console => _, _}
  */
 class ZioNioTcpServer(port: Int) {
 
-  def run[R <: Console,T]( processor: T => RIO[R, List[T]],
+  def run[R <: Console,T]( processor: T => RIO[R, Result[List[T]]],
                            encoder: T => RIO[R,Array[Byte]],
                            decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
     server(port)
@@ -39,28 +40,35 @@ class ZioNioTcpServer(port: Int) {
 
   //TODO: enhance to support multiple threads
   private def handleConnections[R<: Console,T]( server: AsynchronousServerSocketChannel,
-                                 processor: T => RIO[R, List[T]],
+                                 processor: T => RIO[R, Result[List[T]]],
                                  protocolDecoder: Array[Byte] => RIO[R,T],
                                  protocolEncoder: T => RIO[R,Array[Byte]]): RIO[R, Unit] =
     ZStream
       .repeat(server.accept)
       .flatMap(conn => ZStream.managed(conn.ensuring(console.putStrLn("Connection closed"))))
       .mapM{ channel =>
-        val r = for {
+        def r: ZIO[R, Throwable, Unit] = for {
           _    <- console.putStrLn("Received connection")
           requestData <- channel.read(1024)
           _    <- console.putStrLn("Data received: "+ ByteVector(requestData))
           requestObject <- protocolDecoder(requestData.toArray)
           _    <- console.putStrLn("Object received: "+requestObject)
-          respObjects    <- processor(requestObject)
-          _    <- console.putStrLn("Objects to be sent: "+respObjects)
-          respData    <- respObjects.map(protocolEncoder).sequence
+          respResult    <- processor(requestObject)
+          _    <- console.putStrLn(s"[keepConnection=${respResult.keepConnection}]")
+          _    <- console.putStrLn(s"Objects to be sent: ${respResult.res}")
+          respData    <- respResult.res.map(protocolEncoder).sequence
           _    <- console.putStrLn("Data to be sent: "+respData.map(ByteVector(_)))
           writtenBytes <- respData.map(arr => channel.write(Chunk.fromArray(arr))).sequence
           _    <- console.putStrLn("Bytes sent: "+writtenBytes)
+          _ <- if (respResult.keepConnection) r else ZIO.unit
         } yield ()
         r.catchAllDefect(e=>URIO(e.printStackTrace()))
           .catchAll(e=>URIO(e.printStackTrace()))
       }.runDrain
 
+}
+
+
+object ZioNioTcpServer {
+  case class Result[T](res:T,keepConnection: Boolean = false)
 }
