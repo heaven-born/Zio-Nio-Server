@@ -8,6 +8,7 @@ object ServerConfig {
     RsaKey(publicKey =  "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC6zq9FnH5OpRVlpPHS/ZVbru/MwOOObfr01tWDNBwuWAgqicFBAiJ3swokFIscoTIP3JPUYmI8p5BvXeZDvPd73LViqvslhpFdmL5pUfnzP0cTd8pUua4SoMGfvF5J3OTiGpPhW12RyjP3lLlbzLdb2UEWqOWaeIOqYo619feUoQIDAQAB",
            privateKey = "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBALrOr0Wcfk6lFWWk8dL9lVuu78zA445t+vTW1YM0HC5YCCqJwUECInezCiQUixyhMg/ck9RiYjynkG9d5kO893vctWKq+yWGkV2YvmlR+fM/RxN3ylS5rhKgwZ+8Xknc5OIak+FbXZHKM/eUuVvMt1vZQRao5Zp4g6pijrX195ShAgMBAAECgYBVSMb8INYJUZTTMtq0WNE3akZQVD+PZuaLoQkZPVEgV1BjG0D/TNovi621iyt3hqA0XZ+f9sqipl1qepQFmN/jAmm7+Q+qfRb8WppagZpbeDT9w7OfxDM+QH3TuxXnuJk8ym9bcLbhUFbUFDbennMXDdJl/FGHyUCEwN4SoQzDgQJBAP9oxsXVlGB6/+pQby1Zmk4udvD89Cc3eFlGutOpcz3ZdtehhNfXVgAhgP0xRrcgN0jYrdK7W7WpHihZASO82kcCQQC7PUpHnS+RZzEtANNMbBPJQTgbDSRoIszDRQ6WNgvjNjjZ+oZncLkgYqXdQY4xo9PJRtY6uJWZcHf0Xg+6sCXXAkEAyuUTMsnOSy6q6hrnluEdYYor1pk744N/SXyUodx0vedpLzcSbtyTZxs2euyQPp2LDYWD4GoSGqe0W10JOLintQJAUotmn8OwIM35Y/mlLV/IKUVTUrmsfyw4US20jIwvGW/iCFblwdx0AM78iFpKMaAj0ewkraaKbSaj+1ssXAUj6QJAbyNl/ANQHmb91Jsw5IcTrhou/CrDNZ5IjnUqY5porPvbbRiN4WfdhHoriizGr+9HCLW6ej+nTgRs51uaIvUDIg==")
 
-  val rsa_keys = Map("MIGfMA0GCSqGSIb" -> key1)
+  // Map key - fingerprint
+  val rsa_keys = Map(BigInt("123456") -> key1)
 
 }

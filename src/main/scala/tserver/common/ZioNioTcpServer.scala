@@ -17,23 +17,22 @@ import zio.interop.catz.{console => _, _}
  *  encoder - converts type T back to byte array
  *  processor - contains business logic accepting type T (request) and returning list of T (responses)
  *
- * @param host
  * @param port
  */
-class ZioNioTcpServer(host: String ,port: Int) {
+class ZioNioTcpServer(port: Int) {
 
   def run[R <: Console,T]( processor: T => RIO[R, List[T]],
                            encoder: T => RIO[R,Array[Byte]],
                            decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
-    server(host,port)
+    server(port)
       .use(handleConnections(_, processor,decoder,encoder))
 
 
 
-  private def server(host: String ,port: Int): Managed[Exception, AsynchronousServerSocketChannel] =
+  private def server(port: Int): Managed[Exception, AsynchronousServerSocketChannel] =
     for {
       server        <- AsynchronousServerSocketChannel()
-      socketAddress <- SocketAddress.inetSocketAddress(host,port).toManaged_
+      socketAddress <- SocketAddress.inetSocketAddress(port).toManaged_
       _             <- server.bind(socketAddress).toManaged_
     } yield server
 
@@ -49,7 +48,7 @@ class ZioNioTcpServer(host: String ,port: Int) {
       .mapM{ channel =>
         val r = for {
           _    <- console.putStrLn("Received connection")
-          requestData <- channel.read(256)
+          requestData <- channel.read(1024)
           _    <- console.putStrLn("Data received: "+ ByteVector(requestData))
           requestObject <- protocolDecoder(requestData.toArray)
           _    <- console.putStrLn("Object received: "+requestObject)
