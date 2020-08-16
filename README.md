@@ -5,7 +5,7 @@ Purely functional lightweight general purpose TCP server based on ZIO and NIO2 +
 ### Notes
 
 I decided to keep protocol-specific serialization with dedicated codecs for each field instead of "scodec.codecs.ascii32", 
-because I could not understatn if I had to use both at the same time or it was just a simplification in the task. 
+because I could not understand if it was supposed to use both at the same time or it was just a simplification in the task. 
 
 ### Structure
 
