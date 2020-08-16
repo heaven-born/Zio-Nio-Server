@@ -46,7 +46,7 @@ object MtProtoTcpServer extends App {
         //TODO: add pq validation
         pKey <- ZIO.effect(ServerConfig.rsa_keys(keyFPrint).privateKey)
         decArray <- RsaUtil.decrypt(encData.toArray,pKey)
-        (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(Sha1Size)) // drop firs byte and split
+        (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(Sha1Size)) // drop first byte and split
         //TODO: add sha1 validation
         _ <- console.putStrLn(s"SHA1: ${ByteVector(sha1)} Dirty data: ${ByteVector(dirtyData)}")
         cleanedData = dirtyData.take((PqInnerDataCodec.sizeBound.upperBound.get/8).toInt) // remove random bytes
