@@ -7,6 +7,7 @@ import scodec.bits.ByteVector
 import tserver.common.ZioNioTcpServer
 import tserver.common.ZioNioTcpServer.Result
 import tserver.config.ServerConfig
+import tserver.repos.{AuthState, NoRespSentState, ResPqSentState, StateRepo, StateService}
 import tserver.utils.{Base64Utils, RsaUtil, Sha1Util}
 import zio.clock.Clock
 import zio.console.Console
@@ -24,7 +25,7 @@ object MtProtoTcpServer extends App {
     for { ref <- Ref.make(NoRespSentState:AuthState)
           layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
           server <- new ZioNioTcpServer(ServerConfig.port)
-            .run(processor,encoder,decoder)
+            .run(processor,serializer,deserializer)
             .provideLayer(layer)
             .exitCode
         } yield server
@@ -53,14 +54,14 @@ object MtProtoTcpServer extends App {
       ZIO.fail(new IllegalStateException(s"Processor error. Not supported type.$t"))
   }
 
-  def encoder(arr: Protocol):RIO[Env, Array[Byte]] = arr match {
+  def serializer(arr: Protocol):RIO[Env, Array[Byte]] = arr match {
     case res: ResPQ => ZIO(ResPQCodec.encode(res).require.toByteArray)
     case e => ZIO.fail(new IllegalStateException(s"Following type is not supported: $e"))
   }
 
 
   //TODO: add scodec.codecs.ascii32 serialization
-  def decoder(arr: Array[Byte]):RIO[Env, Protocol]  = {
+  def deserializer(arr: Array[Byte]):RIO[Env, Protocol]  = {
     val constructorBytes = arr.slice(20,24)
     val constructorLong = ByteBuffer.wrap(constructorBytes.padTo(8,0.toByte).reverse).getLong
     constructorLong match {
@@ -88,22 +89,6 @@ object MtProtoTcpServer extends App {
   }
 
   val sha1Size = 20
-
-  // --- env for storing state --- //
-
-  object StateRepo {
-    def setAuthState(state: AuthState): URIO[Env,Unit] =
-      ZIO.accessM[Env](_.get[StateService].authKeyState.set(state))
-
-    def getAuthState: URIO[Env,AuthState] =
-      ZIO.accessM[Env](_.get[StateService].authKeyState.get)
-  }
-
-  case class StateService(authKeyState:Ref[AuthState])
-
-  sealed trait AuthState
-  case object NoRespSentState extends AuthState
-  case class ResPqSentState(pq:BigInt) extends AuthState
 
 
 }

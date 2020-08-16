@@ -23,11 +23,11 @@ import zio.interop.catz.{console => _, _}
  */
 class ZioNioTcpServer(port: Int, numOfParallelRequests:Int = 5) {
 
-  def run[R <: Console,T]( processor: T => RIO[R, Result[List[T]]],
-                           encoder: T => RIO[R,Array[Byte]],
-                           decoder: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
+  def run[R <: Console,T](processor: T => RIO[R, Result[List[T]]],
+                          serializer: T => RIO[R,Array[Byte]],
+                          deserializer: Array[Byte] => RIO[R,T]): RIO[R, Unit] =
     server(port)
-      .use(handleConnections(_, processor,decoder,encoder))
+      .use(handleConnections(_, processor,deserializer,serializer))
 
 
 
