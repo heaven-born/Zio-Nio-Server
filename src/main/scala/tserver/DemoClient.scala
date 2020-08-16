@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import scodec.bits.{Bases, BitVector, ByteVector}
 import scodec.codecs.implicits.{implicitStringCodec => _, _}
 import tserver.config.ServerConfig
-import tserver.utils.{FactorizationUtil, RsaUtil}
+import tserver.utils.{FactorizationUtil, RsaUtil, Sha1Util}
 
 object DemoClient {
 
@@ -38,7 +38,6 @@ object DemoClient {
    val resPqReadBytes = client.read(bufferToRead).get
    println("ResPQ read status: " + resPqReadBytes)
 
-
    val resPqVector = ByteVector(bufferToRead.array)
    println("ResPQ data: " + resPqVector)
 
@@ -60,11 +59,7 @@ object DemoClient {
 
    println("Inner data vector: " + innerDataVector )
 
-   val digest = MessageDigest.getInstance("SHA-1");
-   digest.reset();
-   digest.update(innerDataVector.toBitVector.toByteArray);
-
-   val sha1 = ByteVector(digest.digest())
+   val sha1 = ByteVector(Sha1Util.calculate(innerDataVector.toBitVector.toByteArray))
 
    println("Inner data SHA1: " + sha1 )
 
@@ -76,7 +71,7 @@ object DemoClient {
 
    println("Inner data + SHA1 vector (padded): " + paddedVector )
 
-   val server_rsa_public_key = ServerConfig.rsa_keys.valuesIterator.next().publicKey
+   val server_rsa_public_key = ServerConfig.key1.publicKey
 
    val encryptedData = runtime.unsafeRun(RsaUtil.encrypt(paddedVector.toArray,server_rsa_public_key))
 

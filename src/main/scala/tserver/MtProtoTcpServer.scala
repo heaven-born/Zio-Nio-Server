@@ -7,7 +7,7 @@ import scodec.bits.ByteVector
 import tserver.common.ZioNioTcpServer
 import tserver.common.ZioNioTcpServer.Result
 import tserver.config.ServerConfig
-import tserver.utils.RsaUtil
+import tserver.utils.{Base64Utils, RsaUtil, Sha1Util}
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration.durationInt
@@ -32,8 +32,7 @@ object MtProtoTcpServer extends App {
 
   def processor(proto: Protocol):RIO[Env, Result[List[Protocol]]] = proto match {
     case ReqPQ(aKey, _, _, _, n) =>
-      //TODO: fix fingerpint
-      val fingerprint = ServerConfig.rsa_keys.keysIterator.next() // just pick one available in config
+      val fingerprint = BigInt(Base64Utils.decodeFromString(ServerConfig.key1.publicKey).takeRight(8))
       val newPq = 46
       val response:Protocol = ResPQ(aKey,Random.nextLong,0,res_pq_constructor,n,n.reverse,newPq,vector_long_con,1,fingerprint)
       StateRepo.setAuthState(ResPqSentState(newPq)) *> // Simplification: no guaranty that resp wont fail
@@ -42,20 +41,14 @@ object MtProtoTcpServer extends App {
       val Sha1Size = 20
       for {
         state <- StateRepo.getAuthState
-        _ <- state match {
-               case ResPqSentState(pq) =>
-                 if (BigInt(p*q)==pq) console.putStrLn(s"P/Q are valid")
-                 else ZIO.fail(new IllegalStateException(s"P/Q received are not valid"))
-               case _ =>ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))
-             }
-
-        pKey <- ZIO.effect(ServerConfig.rsa_keys(keyFPrint).privateKey)
+        _ <- validatePq(state,p,q)
+        pKey <- ZIO.effect(ServerConfig.key1.privateKey) // key is hardcoded so no fingerprint needed
         decArray <- RsaUtil.decrypt(encData.toArray,pKey)
         (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(Sha1Size)) // drop first byte and split
-        //TODO: add sha1 validation
         _ <- console.putStrLn(s"SHA1: ${ByteVector(sha1)} Dirty data: ${ByteVector(dirtyData)}")
         cleanedData = dirtyData.take((PqInnerDataCodec.sizeBound.upperBound.get/8).toInt) // remove random bytes
         _ <- console.putStrLn(s"Cleaned data: ${ByteVector(cleanedData)}")
+        _ <- validateSha1(cleanedData,sha1)
         innerObj <- ZIO.effect(PqInnerDataCodec.decode(ByteVector(cleanedData).toBitVector).require.value)
         _ <- console.putStrLn(s"server_DH_inner_data: $innerObj")
       } yield Result(List())
@@ -82,6 +75,19 @@ object MtProtoTcpServer extends App {
         val hexConstructor = ByteVector(constructorBytes)
         ZIO.fail(new IllegalStateException(s"Following constructor is not supported HEX($hexConstructor)/DEC($c)"))
     }
+  }
+
+  def validateSha1(data: Array[Byte], sha1:Array[Byte]):RIO[Env,Unit] =
+    if (Sha1Util.calculate(data) sameElements sha1)
+      console.putStrLn(s"Valid sha1")
+    else
+      ZIO.fail(new IllegalStateException(s"Invalid sha1 for inner data encoded"))
+
+  def validatePq(state: AuthState, p:Long, q:Long):RIO[Env,Unit] = state match {
+      case ResPqSentState(pq) =>
+        if (BigInt(p*q)==pq) console.putStrLn(s"P/Q are valid")
+        else ZIO.fail(new IllegalStateException(s"P/Q received are not valid"))
+      case _ =>ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))
   }
 
   // --- env for storing state --- //
