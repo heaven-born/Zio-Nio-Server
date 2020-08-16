@@ -22,8 +22,8 @@ object MtProtoTcpServer extends App {
 
   def run(args: List[String]): URIO[ZEnv, ExitCode] = {
     for { ref <- Ref.make(NoRespSentState:AuthState)
-         layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
-         server <- new ZioNioTcpServer(8080)
+          layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
+          server <- new ZioNioTcpServer(ServerConfig.port)
             .run(processor,encoder,decoder)
             .provideLayer(layer)
             .exitCode
@@ -37,14 +37,11 @@ object MtProtoTcpServer extends App {
       val response:Protocol = ResPQ(aKey,Random.nextLong,0,res_pq_constructor,n,n.reverse,newPq,vector_long_con,1,fingerprint)
       StateRepo.setAuthState(ResPqSentState(newPq)) *> // Simplification: no guaranty that resp wont fail
       RIO(Result(List(response),keepConnection = true))
-    case ReqDHParams(_,_,_,_,_,_,p,q,keyFPrint,encData) =>
-      val Sha1Size = 20
-      for {
+    case ReqDHParams(_,_,_,_,_,_,p,q,keyFPrint,encData) => for {
         state <- StateRepo.getAuthState
-        _ <- validatePq(state,p,q)
-        pKey <- ZIO.effect(ServerConfig.key1.privateKey) // key is hardcoded so no fingerprint needed
-        decArray <- RsaUtil.decrypt(encData.toArray,pKey)
-        (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(Sha1Size)) // drop first byte and split
+        _ <- validatePqAndState(state,p,q)
+        decArray <- RsaUtil.decrypt(encData.toArray,ServerConfig.key1.privateKey)
+        (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(sha1Size)) // drop 256th byte and split
         _ <- console.putStrLn(s"SHA1: ${ByteVector(sha1)} Dirty data: ${ByteVector(dirtyData)}")
         cleanedData = dirtyData.take((PqInnerDataCodec.sizeBound.upperBound.get/8).toInt) // remove random bytes
         _ <- console.putStrLn(s"Cleaned data: ${ByteVector(cleanedData)}")
@@ -83,12 +80,14 @@ object MtProtoTcpServer extends App {
     else
       ZIO.fail(new IllegalStateException(s"Invalid sha1 for inner data encoded"))
 
-  def validatePq(state: AuthState, p:Long, q:Long):RIO[Env,Unit] = state match {
+  def validatePqAndState(state: AuthState, p:Long, q:Long):RIO[Env,Unit] = state match {
       case ResPqSentState(pq) =>
         if (BigInt(p*q)==pq) console.putStrLn(s"P/Q are valid")
         else ZIO.fail(new IllegalStateException(s"P/Q received are not valid"))
       case _ =>ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))
   }
+
+  val sha1Size = 20
 
   // --- env for storing state --- //
 
