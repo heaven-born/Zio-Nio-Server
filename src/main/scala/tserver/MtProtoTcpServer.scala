@@ -21,7 +21,7 @@ object MtProtoTcpServer extends App {
   type Env = Has[StateService] with Console with Clock
 
   def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    for { ref <- Ref.make(NoRequestReceived:AuthState)
+    for { ref <- Ref.make(NoRespSentState:AuthState)
          layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
          server <- new ZioNioTcpServer(8080)
             .run(processor,encoder,decoder)
@@ -34,16 +34,21 @@ object MtProtoTcpServer extends App {
     case ReqPQ(aKey, _, _, _, n) =>
       //TODO: fix fingerpint
       val fingerprint = ServerConfig.rsa_keys.keysIterator.next() // just pick one available in config
-      val response = ResPQ(aKey,Random.nextLong,0,res_pq_constructor,n,n.reverse,46,vector_long_con,1,fingerprint)
-      StateRepo.setAuthState(ReceivedReqPq) *>
-        RIO(Result(List(response),keepConnection = true))
+      val newPq = 46
+      val response:Protocol = ResPQ(aKey,Random.nextLong,0,res_pq_constructor,n,n.reverse,newPq,vector_long_con,1,fingerprint)
+      StateRepo.setAuthState(ResPqSentState(newPq)) *> // Simplification: no guaranty that resp wont fail
+      RIO(Result(List(response),keepConnection = true))
     case ReqDHParams(_,_,_,_,_,_,p,q,keyFPrint,encData) =>
       val Sha1Size = 20
       for {
-        isValidState <- StateRepo.getAuthState.map(_ == ReceivedReqPq)
-        _ <- if (isValidState) ZIO.succeed(())
-             else ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))
-        //TODO: add pq validation
+        state <- StateRepo.getAuthState
+        _ <- state match {
+               case ResPqSentState(pq) =>
+                 if (BigInt(p*q)==pq) console.putStrLn(s"P/Q are valid")
+                 else ZIO.fail(new IllegalStateException(s"P/Q received are not valid"))
+               case _ =>ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))
+             }
+
         pKey <- ZIO.effect(ServerConfig.rsa_keys(keyFPrint).privateKey)
         decArray <- RsaUtil.decrypt(encData.toArray,pKey)
         (sha1,dirtyData) <- ZIO.effect(decArray.tail.splitAt(Sha1Size)) // drop first byte and split
@@ -92,8 +97,8 @@ object MtProtoTcpServer extends App {
   case class StateService(authKeyState:Ref[AuthState])
 
   sealed trait AuthState
-  case object NoRequestReceived extends AuthState
-  case object ReceivedReqPq extends AuthState
+  case object NoRespSentState extends AuthState
+  case class ResPqSentState(pq:BigInt) extends AuthState
 
 
 }

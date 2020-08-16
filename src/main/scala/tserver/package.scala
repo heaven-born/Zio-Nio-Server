@@ -1,7 +1,7 @@
 
 import scodec.{Codec, SizeBound, TransformSyntax}
 import scodec.bits.{BitVector, ByteVector}
-import scodec.codecs.{BitVectorCodec, bytes, constant, fixedSizeBytes, ignore, int, int32L, int64L, uint32L, uint8L, variableSizeBytes, variableSizeDelimited}
+import scodec.codecs.{bytes, int32L, int64L, uint32L, uint8L, variableSizeBytes}
 
 package object tserver {
 
@@ -83,8 +83,9 @@ package object tserver {
     .xmap[BigInt](bv=>BigInt(bv.toArray.prepended(0:Byte)),
                   bi=>ByteVector(bi.toByteArray.reverse.padTo[Byte](9,0).dropRight(1).reverse))
 
-  private lazy val p_q_Coded = variableSizeBytes(uint8L,bytes(7),-3)
-    .xmap[Long](bv=>bv.toLong(),l=>ByteVector.fromLong(l,4))
+  lazy val p_q_Coded = variableSizeBytes(uint8L,bytes(7),-3)
+    .xmap[Long](bv=>bv.dropRight(3).toLong(),
+                l=>ByteVector.fromLong(l,4))
 
 }
 

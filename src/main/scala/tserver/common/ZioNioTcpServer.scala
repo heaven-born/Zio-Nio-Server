@@ -72,7 +72,7 @@ class ZioNioTcpServer(port: Int, numOfParallelRequests:Int = 5) {
           .repeatEffect{acceptBarrier.take *> ZIO(server.accept)}
           .mapMPar(numOfParallelRequests){ _.use { channel =>
               console.putStrLn("Received connection") *>
-                acceptBarrier.offer() *>
+              acceptBarrier.offer() *>
               processConnection(channel)}
           }.runDrain
     } yield ()
