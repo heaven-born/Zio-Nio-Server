@@ -21,15 +21,14 @@ object MtProtoTcpServer extends App {
 
   type Env = Has[StateService] with Console with Clock
 
-  def run(args: List[String]): URIO[ZEnv, ExitCode] = {
-    for { ref <- Ref.make(NoRespSentState:AuthState)
-          layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
-          server <- new ZioNioTcpServer(ServerConfig.port)
-            .run(processor,serializer,deserializer)
-            .provideLayer(layer)
-            .exitCode
-        } yield server
-  }
+  def run(args: List[String]): URIO[ZEnv, ExitCode] = for {
+    ref <- Ref.make(NoRespSentState:AuthState)
+    layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
+    server <- new ZioNioTcpServer(ServerConfig.port)
+      .run(processor,serializer,deserializer)
+      .provideLayer(layer)
+      .exitCode
+  } yield server
 
   def processor(proto: Protocol):RIO[Env, Result[List[Protocol]]] = proto match {
     case ReqPQ(aKey, _, _, _, n) =>
@@ -59,8 +58,6 @@ object MtProtoTcpServer extends App {
     case e => ZIO.fail(new IllegalStateException(s"Following type is not supported: $e"))
   }
 
-
-  //TODO: add scodec.codecs.ascii32 serialization
   def deserializer(arr: Array[Byte]):RIO[Env, Protocol]  = {
     val constructorBytes = arr.slice(20,24)
     val constructorLong = ByteBuffer.wrap(constructorBytes.padTo(8,0.toByte).reverse).getLong
