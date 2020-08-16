@@ -66,13 +66,13 @@ class ZioNioTcpServer(port: Int, numOfParallelRequests:Int = 5) {
     }
 
     for {
-       queue <- Queue.bounded[Unit](1)
-       _ <- queue.offer(())
-       _ <- ZStream
-          .repeatEffect{queue.take *> ZIO(server.accept)}
+      acceptBarrier <- Queue.bounded[Unit](1) // <- ugly trick to support parallel requests
+      _ <- acceptBarrier.offer(())
+      _ <- ZStream
+          .repeatEffect{acceptBarrier.take *> ZIO(server.accept)}
           .mapMPar(numOfParallelRequests){ _.use { channel =>
               console.putStrLn("Received connection") *>
-              queue.offer() *>
+                acceptBarrier.offer() *>
               processConnection(channel)}
           }.runDrain
     } yield ()
