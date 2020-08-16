@@ -7,7 +7,7 @@ import scodec.bits.ByteVector
 import tserver.common.ZioNioTcpServer
 import tserver.common.ZioNioTcpServer.Result
 import tserver.config.ServerConfig
-import tserver.repos.{AuthState, NoRespSentState, ResPqSentState, StateRepo, StateService}
+import tserver.repos.{AuthState, EmptyState, ReqPqReceived, StateRepo, StateService}
 import tserver.utils.{Base64Utils, RsaUtil, Sha1Util}
 import zio.clock.Clock
 import zio.console.Console
@@ -22,7 +22,7 @@ object MtProtoTcpServer extends App {
   type Env = Has[StateService] with Console with Clock
 
   def run(args: List[String]): URIO[ZEnv, ExitCode] = for {
-    ref <- Ref.make(NoRespSentState:AuthState)
+    ref <- Ref.make(EmptyState:AuthState)
     layer = ZEnv.live ++ ZLayer.succeed(StateService(ref))
     server <- new ZioNioTcpServer(ServerConfig.port)
       .run(processor,serializer,deserializer)
@@ -35,7 +35,7 @@ object MtProtoTcpServer extends App {
       val fingerprint = BigInt(Base64Utils.decodeFromString(ServerConfig.key1.publicKey).takeRight(8))
       val newPq = 46
       val response:Protocol = ResPQ(aKey,Random.nextLong,0,res_pq_constructor,n,n.reverse,newPq,vector_long_con,1,fingerprint)
-      StateRepo.setAuthState(ResPqSentState(newPq)) *> // Simplification: no guaranty that resp wont fail
+      StateRepo.setAuthState(ReqPqReceived(newPq)) *>
       RIO(Result(List(response),keepConnection = true))
     case ReqDHParams(_,_,_,_,_,_,p,q,keyFPrint,encData) => for {
         state <- StateRepo.getAuthState
@@ -79,7 +79,7 @@ object MtProtoTcpServer extends App {
       ZIO.fail(new IllegalStateException(s"Invalid sha1 for inner data encoded"))
 
   def validatePqAndState(state: AuthState, p:Long, q:Long):RIO[Env,Unit] = state match {
-      case ResPqSentState(pq) =>
+      case ReqPqReceived(pq) =>
         if (BigInt(p*q)==pq) console.putStrLn(s"P/Q are valid")
         else ZIO.fail(new IllegalStateException(s"P/Q received are not valid"))
       case _ =>ZIO.fail(new IllegalStateException(s"Can't process ReqDHParams. Your must send ReqPQ first."))

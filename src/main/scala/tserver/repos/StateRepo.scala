@@ -16,5 +16,5 @@ object StateRepo {
 case class StateService(authKeyState:Ref[AuthState])
 
 sealed trait AuthState
-case object NoRespSentState extends AuthState
-case class ResPqSentState(pq:BigInt) extends AuthState
+case object EmptyState extends AuthState
+case class ReqPqReceived(pq:BigInt) extends AuthState
